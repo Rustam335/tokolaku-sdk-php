@@ -21,7 +21,7 @@ final class Webhooks
             return false;
         }
         $hex = substr($signatureHeader, strlen('sha256='));
-        if (!preg_match('/^[0-9a-f]{64}$/i', $hex)) {
+        if (!preg_match('/\A[0-9a-f]{64}\z/i', $hex)) {
             return false; // strict: exactly 64 hex chars, reject trailing garbage
         }
         $expected = hash_hmac('sha256', $rawBody, $secret, true);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tokolaku\Tests;
 
 use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Psr7\FnStream;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
@@ -61,6 +62,22 @@ final class RetryFlowTest extends TestCase
             null,
             ['errno' => 28],
         );
+    }
+
+    /** RequestException yang MEMBAWA respons parsial (server sudah menjawab). */
+    private static function requestExceptionWithResponse(int $status): RequestException
+    {
+        return new RequestException(
+            'stream ended prematurely',
+            new Request('POST', 'x'),
+            new Response($status, [], 'partial'),
+        );
+    }
+
+    /** RequestException TANPA respons (mis. TooManyRedirectsException-style, gagal pra-respons). */
+    private static function requestExceptionWithoutResponse(): RequestException
+    {
+        return new RequestException('too many redirects', new Request('POST', 'x'));
     }
 
     /** Respons 200 dengan body stream yang gagal dibaca pasca-header. */
@@ -229,5 +246,48 @@ final class RetryFlowTest extends TestCase
             $this->assertSame(200, $e->getStatus());
         }
         $this->assertCount(1, $history);
+    }
+
+    public function testRequestExceptionWithResponseIsNotRetriedOnMessagesSend(): void
+    {
+        $history = [];
+        $http = self::mockClient([self::requestExceptionWithResponse(200), self::jsonResponse(200, self::OK_MSG_BODY)], $history);
+        $tk = new Client(['api_key' => 'k', 'http_client' => $http, 'max_retries' => 2]);
+
+        try {
+            $tk->sendMessage(['to' => '628', 'text' => 'hai']);
+            $this->fail('Expected ApiException');
+        } catch (ApiException $e) {
+            $this->assertSame('response_read_error', $e->getErrorCode());
+            $this->assertSame(200, $e->getStatus());
+        }
+        $this->assertCount(1, $history); // respons parsial sudah diterima -> JANGAN retry
+    }
+
+    public function testRequestExceptionWithResponseIsNotRetriedOnBotReply(): void
+    {
+        $history = [];
+        $http = self::mockClient([self::requestExceptionWithResponse(200), self::jsonResponse(200, self::OK_REPLY_BODY)], $history);
+        $tk = new Client(['api_key' => 'k', 'http_client' => $http, 'max_retries' => 2]);
+
+        try {
+            $tk->botReply(['message' => 'hai']);
+            $this->fail('Expected ApiException');
+        } catch (ApiException $e) {
+            $this->assertSame('response_read_error', $e->getErrorCode());
+            $this->assertSame(200, $e->getStatus());
+        }
+        $this->assertCount(1, $history); // respons parsial sudah diterima -> JANGAN retry
+    }
+
+    public function testRequestExceptionWithoutResponseIsTreatedAsNetworkErrorAndRetried(): void
+    {
+        $history = [];
+        $http = self::mockClient([self::requestExceptionWithoutResponse(), self::jsonResponse(200, self::OK_MSG_BODY)], $history);
+        $tk = new Client(['api_key' => 'k', 'http_client' => $http, 'max_retries' => 2]);
+
+        $tk->sendMessage(['to' => '628', 'text' => 'hai']);
+
+        $this->assertCount(2, $history); // network_error retryable utk kedua policy
     }
 }

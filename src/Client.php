@@ -8,6 +8,7 @@ use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Exception\RequestException;
 use Throwable;
 use Tokolaku\Exception\ApiException;
 use Tokolaku\Exception\ValidationException;
@@ -135,10 +136,25 @@ final class Client
                 throw new ApiException("Timeout setelah {$this->timeout}s", null, 'timeout');
             }
             throw new ApiException('Network error: ' . $e->getMessage(), null, 'network_error');
+        } catch (RequestException $e) {
+            // RequestException & ConnectException sama-sama langsung extends
+            // TransferException (siblings, BUKAN subclass) — urutan catch di
+            // sini aman, tidak ada blok yang unreachable.
+            //
+            // Kalau exception ini MEMBAWA respons (parsial), berarti request
+            // SAMPAI ke server & header respons sudah diterima — efek samping
+            // (mis. pesan terkirim & tercharge, reply AI dihasilkan) mungkin
+            // SUDAH terjadi. BUKAN network error & TIDAK boleh di-retry
+            // (paritas dgn response_read_error — lihat Retry::shouldRetry).
+            if ($e->hasResponse()) {
+                $status = $e->getResponse()?->getStatusCode();
+                throw new ApiException('Gagal membaca respons dari server', $status, 'response_read_error');
+            }
+            throw new ApiException('Network error: ' . $e->getMessage(), null, 'network_error');
         } catch (GuzzleException $e) {
-            // Kelas GuzzleException lain pra-respons (mis. RequestException tanpa
-            // respons, TooManyRedirectsException) — perlakukan sama seperti
-            // ConnectException: kegagalan sebelum ada efek samping server.
+            // Kelas GuzzleException lain pra-respons (mis. TooManyRedirectsException)
+            // — perlakukan sama seperti ConnectException: kegagalan sebelum ada
+            // efek samping server.
             throw new ApiException('Network error: ' . $e->getMessage(), null, 'network_error');
         }
 

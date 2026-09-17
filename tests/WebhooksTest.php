@@ -64,6 +64,14 @@ final class WebhooksTest extends TestCase
         $this->assertFalse(Webhooks::verifySignature($body, self::sign(self::SECRET, $body) . 'zz', self::SECRET));
     }
 
+    public function testVerifyTrailingNewlineAfterValidHexReturnsFalse(): void
+    {
+        // PCRE `$` (bukan `\z`) mengizinkan trailing "\n" sebelum akhir string —
+        // regex WAJIB pakai \A...\z (strict) supaya kasus ini tetap ditolak.
+        $body = self::body();
+        $this->assertFalse(Webhooks::verifySignature($body, self::sign(self::SECRET, $body) . "\n", self::SECRET));
+    }
+
     public function testVerifyUppercaseHexIsAccepted(): void
     {
         $body = self::body();
