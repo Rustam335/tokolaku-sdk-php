@@ -15,6 +15,12 @@ use Tokolaku\Exception\ApiException;
  */
 final class Retry
 {
+    /**
+     * Cap Retry-After: server (atau proxy nakal) yang mengirim nilai raksasa
+     * (mis. 86400) tidak boleh membuat klien tidur berjam-jam.
+     */
+    public const RETRY_AFTER_CAP_SEC = 30;
+
     public static function shouldRetry(string $policy, ApiException $e): bool
     {
         if ($e->getErrorCode() === 'timeout') {
@@ -37,11 +43,11 @@ final class Retry
         return false;
     }
 
-    /** Exponential backoff + full jitter, base 250ms cap 1s; Retry-After menang. */
+    /** Exponential backoff + full jitter, base 250ms cap 1s; Retry-After menang (di-cap RETRY_AFTER_CAP_SEC). */
     public static function retryDelayMs(int $attempt, ?int $retryAfterSec): int
     {
         if ($retryAfterSec !== null) {
-            return max(0, $retryAfterSec * 1000);
+            return max(0, min($retryAfterSec, self::RETRY_AFTER_CAP_SEC) * 1000);
         }
         $cap = min(1000, 250 * 2 ** $attempt);
 

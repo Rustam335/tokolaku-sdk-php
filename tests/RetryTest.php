@@ -106,4 +106,13 @@ final class RetryTest extends TestCase
         $this->assertGreaterThanOrEqual(125, $d);
         $this->assertLessThanOrEqual(250, $d);
     }
+
+    public function testRetryAfterCappedAt30s(): void
+    {
+        $this->assertSame(30000, Retry::retryDelayMs(0, 86400));
+        $this->assertSame(30000, Retry::retryDelayMs(0, 31));
+        $this->assertSame(30000, Retry::retryDelayMs(0, 30));
+        $this->assertSame(29000, Retry::retryDelayMs(0, 29));
+        $this->assertSame(0, Retry::retryDelayMs(0, -5));
+    }
 }
