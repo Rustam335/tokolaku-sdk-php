@@ -172,7 +172,8 @@ final class Client
 
         if ($status < 200 || $status >= 300) {
             $retryAfterHeader = $response->getHeaderLine('Retry-After');
-            $retryAfterSec = ($retryAfterHeader !== '' && ctype_digit($retryAfterHeader))
+            // PCRE selalu tersedia; \A\d+\z match ASCII-only digits (hindari dependensi ext-ctype)
+            $retryAfterSec = ($retryAfterHeader !== '' && preg_match('/\A\d+\z/', $retryAfterHeader) === 1)
                 ? (int) $retryAfterHeader
                 : null;
             throw ApiException::fromResponse($status, $text);

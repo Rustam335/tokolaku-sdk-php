@@ -40,7 +40,8 @@ class ApiException extends Exception
     public static function fromResponse(int $status, string $bodyText): self
     {
         $code = null;
-        $message = $bodyText !== '' ? mb_substr($bodyText, 0, 500) : "HTTP {$status}";
+        // substr byte-based: cap kasar 500 byte cukup utk pesan error (hindari dependensi ext-mbstring)
+        $message = $bodyText !== '' ? substr($bodyText, 0, 500) : "HTTP {$status}";
 
         $parsed = json_decode($bodyText, true);
         if (is_array($parsed) && isset($parsed['error']) && is_array($parsed['error'])) {
