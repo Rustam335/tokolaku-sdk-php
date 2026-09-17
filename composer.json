@@ -1,0 +1,33 @@
+{
+    "name": "tokolaku/sdk",
+    "description": "Official PHP SDK for the Tokolaku Engine API",
+    "type": "library",
+    "license": "MIT",
+    "homepage": "https://tokolaku.id/developers",
+    "support": {
+        "issues": "https://github.com/Rustam335/tokolaku-sdk-php/issues",
+        "source": "https://github.com/Rustam335/tokolaku-sdk-php"
+    },
+    "require": {
+        "php": ">=8.1",
+        "guzzlehttp/guzzle": "^7.8"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Tokolaku\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tokolaku\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
